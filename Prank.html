@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>System Access Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #0A0A0A;
+    --green: #00FF41;
+    --red: #FF003C;
+    --amber: #FEAA00;
+    --border: rgba(0, 255, 65, 0.3);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--green); font-family: "JetBrains Mono", "Fira Code", monospace; overflow-x: hidden; }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: repeating-linear-gradient(0deg, rgba(0,255,65,0.06) 0 1px, transparent 1px 3px);
+    pointer-events: none; z-index: 30;
+    opacity: 0.5;
+  }
+  .rain { position: fixed; inset: 0; overflow: hidden; opacity: 0.18; pointer-events: none; z-index: 0; display: flex; justify-content: space-between; }
+  .rain span { writing-mode: vertical-rl; font-size: 10px; line-height: 10px; white-space: pre; color: var(--green); animation: rain linear infinite; }
+  @keyframes rain { 0% { transform: translateY(-100%); } 100% { transform: translateY(110vh); } }
+  header {
+    position: relative; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
+    font-size: 12px;
+  }
+  .alert {
+    color: var(--red); font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(255,0,60,0.6);
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+  .stats {
+    position: relative; z-index: 10;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .stat { padding: 10px 14px; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat .label { font-size: 9px; letter-spacing: 3px; color: rgba(0,255,65,0.6); text-transform: uppercase; }
+  .stat .value { margin-top: 4px; font-size: 18px; font-weight: 700; color: var(--green); text-shadow: 0 0 6px rgba(0,255,65,0.4); }
+  .grid { position: relative; z-index: 10; display: grid; grid-template-columns: 2fr 1fr; }
+  .panel-title { padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: rgba(0,255,65,0.7); background: var(--panel); display:flex; justify-content:space-between; align-items:center; }
+  .dot { display:inline-block; width:8px; height:8px; margin-left:3px; }
+  .terminal { border-right: 1px solid var(--border); background: var(--bg); }
+  .logs { height: 52vh; overflow-y: auto; padding: 12px 16px; font-size: 13px; line-height: 24px; -webkit-overflow-scrolling: touch; }
+  .logs::-webkit-scrollbar { width: 8px; }
+  .logs::-webkit-scrollbar-track { background: #050505; }
+  .logs::-webkit-scrollbar-thumb { background: #003B00; }
+  .log { white-space: pre-wrap; text-shadow: 0 0 6px rgba(0,255,65,0.35); }
+  .log.warn { color: var(--amber); text-shadow: 0 0 6px rgba(254,170,0,0.4); }
+  .log.alert { color: var(--red); text-shadow: 0 0 6px rgba(255,0,60,0.5); }
+  .log .idx { color: rgba(0,255,65,0.5); margin-right: 10px; }
+  .log .tag { margin-right: 8px; }
+  .cursor { display: inline-block; width: 8px; height: 16px; background: var(--green); vertical-align: middle; animation: caret 1s steps(2) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+  aside { background: var(--panel); padding: 14px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(0,255,65,0.6); margin-bottom: 6px; }
+  .bar { display: flex; gap: 2px; margin-bottom: 14px; }
+  .cell { flex: 1; height: 12px; border: 1px solid rgba(0,255,65,0.25); }
+  .cell.on { background: var(--red); border-color: var(--red); box-shadow: 0 0 6px rgba(255,0,60,0.4); }
+  .bar.amber .cell.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px rgba(254,170,0,0.4); }
+  .bar.green .cell.on { background: var(--green); border-color: var(--green); box-shadow: 0 0 6px rgba(0,255,65,0.4); }
+  .notice {
+    margin-top: 14px; padding: 12px; border: 1px solid rgba(255,0,60,0.6); background: #1a0006;
+    color: var(--red); font-size: 11px; line-height: 18px; text-shadow: 0 0 4px rgba(255,0,60,0.35);
+  }
+  .notice b { display: flex; align-items: center; gap: 6px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+  footer { position: relative; z-index: 10; display: flex; justify-content: space-between; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 10px; letter-spacing: 2px; color: rgba(0,255,65,0.6); text-transform: uppercase; }
+  .reveal {
+    position: relative; z-index: 20;
+    display: none; flex-direction: column; gap: 12px;
+    padding: 22px; border-top: 2px solid var(--amber); background: var(--panel);
+    animation: flicker 1.4s ease-in-out;
+  }
+  @keyframes flicker { 0%,100% { opacity: 1; } 10% { opacity: 0.5; } 20% { opacity: 1; } 32% { opacity: 0.4; } 40% { opacity: 1; } }
+  .reveal h2 { margin: 0; font-size: 28px; font-weight: 700; text-transform: uppercase; color: var(--amber); text-shadow: 0 0 10px rgba(254,170,0,0.55); }
+  .reveal p { margin: 0; color: rgba(0,255,65,0.85); font-size: 13px; max-width: 720px; line-height: 20px; }
+  .reveal button {
+    align-self: flex-start; padding: 12px 22px; background: transparent; color: var(--amber);
+    border: 1px solid var(--amber); font-family: inherit; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; cursor: pointer; font-size: 12px;
+  }
+  .reveal button:hover { background: var(--amber); color: #0A0A0A; }
+  @media (max-width: 768px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+    .terminal { border-right: none; border-bottom: 1px solid var(--border); }
+    .logs { height: 40vh; }
+  }
+</style>
+</head>
+<body>
+  <div class="rain" id="rain"></div>
+
+  <header>
+    <div>
+      <span class="alert">⚠ SYSTEM COMPROMISED</span>
+      <span style="color: rgba(0,255,65,0.5); margin-left: 12px;">// target: user@this-machine</span>
+    </div>
+    <div style="color: rgba(0,255,65,0.6); font-size: 10px; letter-spacing: 3px; text-transform: uppercase;">root@northridge — pid 4881</div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><div class="label">Packets RX</div><div class="value" id="stat-packets">0</div></div>
+    <div class="stat"><div class="label">Files Accessed</div><div class="value" id="stat-files">0</div></div>
+    <div class="stat"><div class="label">Keys Extracted</div><div class="value" id="stat-keys">0</div></div>
+    <div class="stat"><div class="label">Shells Open</div><div class="value">12</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="terminal">
+      <div class="panel-title">
+        <span>tty0 — live intrusion log</span>
+        <span><i class="dot" style="background:#FF003C"></i><i class="dot" style="background:#FEAA00"></i><i class="dot" style="background:#00FF41"></i></span>
+      </div>
+      <div class="logs" id="logs"><span class="cursor" id="cursor"></span></div>
+    </div>
+    <aside>
+      <div class="panel-title" style="margin: -14px -14px 14px -14px;">
+        <span>progress</span>
+        <span><i class="dot" style="background:#FF003C"></i><i class="dot" style="background:#FEAA00"></i><i class="dot" style="background:#00FF41"></i></span>
+      </div>
+      <div class="bar-label"><span>data exfiltration</span><span id="p1">0%</span></div>
+      <div class="bar" id="bar1"></div>
+      <div class="bar-label"><span>encrypting drives</span><span id="p2">0%</span></div>
+      <div class="bar amber" id="bar2"></div>
+      <div class="bar-label"><span>webcam sync</span><span id="p3">0%</span></div>
+      <div class="bar green" id="bar3"></div>
+      <div class="notice">
+        <b>⚠ Notice</b>
+        Pay 0.7 BTC to unlock. Ignore this and pretend it never happened. Actually — please do the latter.
+      </div>
+    </aside>
+  </section>
+
+  <div class="reveal" id="reveal">
+    <h2>Gotcha — you've been pranked</h2>
+    <p>Nothing was accessed, encrypted, uploaded, or sent. This entire screen is a harmless joke served from a static HTML file. Send it to a friend who deserves a mild scare, then close the tab before your boss walks by.</p>
+    <button onclick="location.reload()">Run it again</button>
+  </div>
+
+  <footer>
+    <span>connection: reverse-shell // encrypted</span>
+    <span>ping 8ms · 203.0.113.42:1337</span>
+  </footer>
+
+<script>
+  const rain = document.getElementById("rain");
+  const cols = 28;
+  for (let i = 0; i < cols; i++) {
+    const s = document.createElement("span");
+    let chars = "";
+    for (let j = 0; j < 22; j++) chars += String.fromCharCode(0x30A0 + Math.floor(Math.random() * 96));
+    s.textContent = chars;
+    s.style.animationDuration = (4 + Math.random() * 6) + "s";
+    s.style.animationDelay = (Math.random() * 5) + "s";
+    rain.appendChild(s);
+  }
+
+  const CELLS = 24;
+  ["bar1", "bar2", "bar3"].forEach(id => {
+    const b = document.getElementById(id);
+    for (let i = 0; i < CELLS; i++) {
+      const c = document.createElement("div");
+      c.className = "cell";
+      b.appendChild(c);
+    }
+  });
+
+  function setBar(id, value) {
+    const b = document.getElementById(id);
+    const filled = Math.round((value / 100) * CELLS);
+    [...b.children].forEach((c, i) => c.classList.toggle("on", i < filled));
+  }
+
+  const LOGS = [
+    { t: "[BOOT]",  m: "Initializing kernel-level access...",              level: "" },
+    { t: "[CONN]",  m: "Target user acquired: LOCALHOST\\GUEST",           level: "" },
+    { t: "[SCAN]",  m: "Enumerating local network 192.168.0.0/16",         level: "" },
+    { t: "[OK]",    m: "Firewall rule 0x7A3F bypassed",                    level: "" },
+    { t: "[EXEC]",  m: "Injecting payload into svchost.exe (PID 4881)",    level: "warn" },
+    { t: "[FILE]",  m: "Reading C:\\Users\\%USER%\\Documents\\passwords.txt", level: "warn" },
+    { t: "[FILE]",  m: "Reading ~/.ssh/id_rsa ... [217 keys extracted]",   level: "warn" },
+    { t: "[NET]",   m: "Uploading contacts to 203.0.113.42:1337",          level: "warn" },
+    { t: "[CAM]",   m: "Activating front-facing camera... say cheese!",    level: "alert" },
+    { t: "[MIC]",   m: "Listening on system microphone ...",               level: "alert" },
+    { t: "[CRYPT]", m: "Encrypting 12,847 files with AES-256",             level: "alert" },
+    { t: "[CRYPT]", m: "Wallet.dat located ($0.00 discovered)",            level: "warn" },
+    { t: "[SEND]",  m: "Broadcasting embarrassing photos to your contacts...", level: "alert" },
+    { t: "[LOL]",   m: "Just kidding! Nothing was actually accessed :)",   level: "" }
+  ];
+
+  const logsEl = document.getElementById("logs");
+  const cursor = document.getElementById("cursor");
+  let i = 0;
+
+  function nextLog() {
+    if (i >= LOGS.length) {
+      if (cursor) cursor.style.display = "none";
+      setTimeout(() => { document.getElementById("reveal").style.display = "flex"; }, 700);
+      return;
+    }
+    const l = LOGS[i];
+    const div = document.createElement("div");
+    div.className = "log " + (l.level || "");
+
+    const idxSpan = document.createElement("span");
+    idxSpan.className = "idx";
+    idxSpan.textContent = String(i + 1).padStart(2, "0");
+
+    const tagSpan = document.createElement("span");
+    tagSpan.className = "tag";
+    tagSpan.textContent = l.t;
+
+    const msgSpan = document.createElement("span");
+    msgSpan.textContent = l.m;
+
+    div.appendChild(idxSpan);
+    div.appendChild(tagSpan);
+    div.appendChild(msgSpan);
+
+    logsEl.insertBefore(div, cursor);
+    logsEl.scrollTop = logsEl.scrollHeight;
+    i++;
+    setTimeout(nextLog, 850);
+  }
+  
+  nextLog();
+
+  let p = 3;
+  setInterval(() => {
+    const jump = Math.random() < 0.15 ? -8 : 3 + Math.random() * 9;
+    p = Math.max(2, Math.min(99, p + jump));
+    setBar("bar1", p);
+    setBar("bar2", Math.min(99, p * 1.2));
+    setBar("bar3", Math.min(99, p * 0.9));
+    document.getElementById("p1").textContent = Math.round(p) + "%";
+    document.getElementById("p2").textContent = Math.round(Math.min(99, p * 1.2)) + "%";
+    document.getElementById("p3").textContent = Math.round(Math.min(99, p * 0.9)) + "%";
+    document.getElementById("stat-packets").textContent = Math.floor(4500 + p * 891).toLocaleString();
+    document.getElementById("stat-files").textContent   = Math.floor(1200 + p * 137).toLocaleString();
+    document.getElementById("stat-keys").textContent    = Math.floor(p * 2.7).toString();
+  }, 320);
+</script>
+</body>
+</html>
